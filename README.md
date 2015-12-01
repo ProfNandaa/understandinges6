@@ -27,7 +27,7 @@ Anything that is not present in the published version is considered a work-in-pr
 
 ## Purchasing a copy
 
-You can purchase a copy of this ebook through [Leanpub](https://leanpub.com/understandinges6).
+You can purchase a copy of this ebook through [Leanpub](https://leanpub.com/understandinges6). If you purchase a copy before the ebook is finished, you will receive all updates to the ebook as they are released, up to and including the finished version.
 
 ## Contributions
 
@@ -37,7 +37,7 @@ Even though this book is being developed in the open, the project works differen
 
 Leanpub uses a specific flavor of Markdown for its source files. Please be sure to read [their documentation](https://leanpub.com/help/manual#leanpub-auto-styling-text) about what is allowable and what is not.
 
-**Note:** It may be frustrating, but Leanpub does not support GitHub-flavored Markdown.
+**Note:** It may be frustrating, Leanpub does not support all of GitHub-flavored markdown.
 
 ### Pull requests
 
@@ -77,7 +77,7 @@ These types of issues will simply be marked as invalid and closed without commen
 
 ## Copyright and License
 
-Copyright 2014 Nicholas C. Zakas.
+Copyright 2014-2015 Nicholas C. Zakas.
 
 This work is licensed under a [Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License](http://creativecommons.org/licenses/by-nc-nd/3.0/).
 
@@ -85,11 +85,11 @@ This work is licensed under a [Creative Commons Attribution-NonCommercial-NoDeri
 
 ### When will the book be finished?
 
-To be determined. Since I'm writing this in my spare time, it's hard to predict when it will be complete. The goal is to have it complete by December 2014, but that is a goal and not a deadline.
+To be determined. Since I'm writing this in my spare time, it's hard to predict when it will be complete. The goal is to have it complete by December 2015, but that is a goal and not a deadline.
 
 ### If I buy a copy now, do I get the finished one?
 
-Yes. When you buy a copy today, you will automatically get all updates for the book. You'll be notified of updated versions via email after purchase.
+Yes. When you buy the Leanpub ebook today, you will automatically get all updates for the ebook. You'll be notified of updated versions via email after purchase.
 
 ### How often is the book published?
 
@@ -101,8 +101,8 @@ Everything in GitHub is a work in progress. Those parts that are known to be cor
 
 ### Will there be a print version of the book?
 
-In all likelihood yes. I've already been contacted by a couple of publishers, but there will be no final decision made until the content of the book is complete. This is intentional on my part because publishers have deadlines, and I'm unable to estimate when I'll have the book finished.
+Yes. [No Starch Press](https://www.nostarch.com/) will be publishing the book when it's complete. We're hoping to have a print version by early 2016. [Follow me](https://twitter.com/slicknet) for updates.
 
 ### Can I acquire translation rights?
 
-Not at this time. I will likely leave that to the publisher of the print book.
+Yes. Please contact [No Starch Press](https://www.nostarch.com/) for acquiring translation rights.

@@ -24,6 +24,11 @@ console.log(proxy.name);        // 35
 console.log(proxy.title);       // 35
 ```
 
+## Extra
+
+`Array.isArray(new Proxy([], {}))` is true.
+
+
 ## Uses
 
 
@@ -78,7 +83,7 @@ console.log(defensivePerson.age);         // 13
 
 So objects retain their ability to mutate unless you do something to change that. Properties can always be added but non-existent properties will throw an error when read rather than just returning `undefined`.
 
-You can then truly defend the interface of an object, disallowing additions and erroring when accessing a non-existent property, by using a couple of steps:
+You can then truly defend the interface of an object, disallowing additions and throwing an error when accessing a non-existent property, by using a couple of steps:
 
 ```js
 function Person(name) {
@@ -98,7 +103,8 @@ The idea behind type safety is that each variable or property can only contain a
 var person = {
     name: "Nicholas",
     age: 16
-};```
+};
+```
 
 In this code, it's easy to see that `name` should hold a string and `age` should hold a number. You wouldn't expect these properties to hold other types of data for as long as the object is used. Using proxies, it's possible to use this information to ensure that new values assigned to these properties are of the same type.
 
@@ -119,7 +125,8 @@ function createTypeSafeObject(object) {
               }
           }
     });
-}```
+}
+```
 
 The `createTypeSafeObject()` method accepts an object and creates a proxy for it with a `set` trap. The trap uses `typeof` to get the type of the existing property and the value that was passed in. If the property already exists on the object and the types don't match, then an error is thrown. If the property either doesn't exist already or the types match, then the assignment happens as usual. This has the effect of allowing objects to receive new properties without error. For example:
 

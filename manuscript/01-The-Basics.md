@@ -4,9 +4,9 @@ ECMAScript 6 makes a large number of changes on top of ECMAScript 5. Some of the
 
 ## Better Unicode Support
 
-Prior to ECMAScript 6, JavaScript strings were based solely on the idea of 16-bit character encodings. All string properties and methods, such as `length` and `charAt()`, were based around the idea that every 16-bit sequence represented a single character. ECMAScript 5 allowed JavaScript engines to decide which of two encodings to use, either UCS-2 or UTF-16 (both encoding using 16-bit *code units*, making all observable operations the same). While it's true that all of the world's characters used to fit into 16 bits at one point in time, that is no longer the case.
+Prior to ECMAScript 6, JavaScript strings were based solely on the idea of 16-bit character encodings. All string properties and methods, such as `length` and `charAt()`, were based around the idea that every 16-bit sequence represented a single character. ECMAScript 5 allowed JavaScript engines to decide which of two encodings to use, either UCS-2 or UTF-16 (both encodings use 16-bit *code units*, making all observable operations the same). While it's true that all of the world's characters used to fit into 16 bits at one point in time, that is no longer the case.
 
-Keeping within 16 bits wasn't possible for Unicode's stated goal of providing a globally unique identifier to every character in the world. These globally unique identifiers, called *code points*, are simply numbers starting at 0 (you might think of these as character codes, but there is subtle difference). A character encoding is responsible for encoding a code point into code units that are internally consistent. While UCS-2 had a one-to-one mapping of code point to code unit, UTF-16 is more variable.
+Keeping within 16 bits wasn't possible for Unicode's stated goal of providing a globally unique identifier to every character in the world. These globally unique identifiers, called *code points*, are simply numbers starting at 0 (you might think of these as character codes, though there is a subtle difference). A character encoding is responsible for encoding a code point into code units that are internally consistent. While UCS-2 had a one-to-one mapping of code point to code unit, UTF-16 is more variable.
 
 The first 2^16 code points are represented as single 16-bit code units in UTF-16. This is called the *Basic Multilingual Plane* (BMP). Everything beyond that range is considered to be in a *supplementary plane*, where the code points can no longer be represented in just 16-bits. UTF-16 solves this problem by introducing *surrogate pairs* in which a single code point is represented by two 16-bit code units. That means any single character in a string can be either one code unit (for BMP, total of 16 bits) or two (for supplementary plane characters, total of 32 bits).
 
@@ -29,16 +29,23 @@ ECMAScript 6 enforces encoding of strings in UTF-16. Standardizing on this chara
 
 ### The `codePointAt()` Method
 
-The first example of fully supporting UTF-16 is the `codePointAt()` method, which can be used to retrieve the Unicode code point that maps to a given character. This method accepts the character position (not the code unit position) and returns an integer value:
+The first example of fully supporting UTF-16 is the `codePointAt()` method, which can be used to retrieve the Unicode code point that maps to a given position in a string. This method accepts the code unit position (not the character position) and returns an integer value:
 
 ```js
 var text = "𠮷a";
 
+console.log(text.charCodeAt(0));    // 55362
+console.log(text.charCodeAt(1));    // 57271
+console.log(text.charCodeAt(2));    // 97
+
 console.log(text.codePointAt(0));   // 134071
-console.log(text.codePointAt(1));   // 97
+console.log(text.codePointAt(1));   // 57271
+console.log(text.codePointAt(2));   // 97
 ```
 
-The value returned is the Unicode code point value. For BMP characters, this will be the same result as using `charCodeAt()`, so the `"a"` returns 97. This method is the easiest way to determine if a given character is represented by one or two code points:
+The `codePointAt()` method works in the same manner as `charCodeAt()` except for non-BMP characters. The first character in `text` is non-BMP and is therefore comprised of two code units, meaning the entire length of the string is 3 rather than 2. The `charCodeAt()` method returns only the first code unit for position 0 whereas `codePointAt()` returns the full code point even though it spans multiple code units. Both methods return the same value for positions 1 (the second code unit of the first character) and 2 (the `"a"`).
+
+This method is the easiest way to determine if a given character is represented by one or two code points:
 
 ```js
 function is32Bit(c) {
@@ -53,11 +60,12 @@ The upper bound of 16-bit characters is represented in hexadecimal as `FFFF`, so
 
 ### `String.fromCodePoint()`
 
-When ECMAScript provides a way to do something, it also tends to provide a way to do the reverse. You can use `codePointAt()` to retrieve the code point for a character in a string while `String.fromCodePoint()` produces a single-character string for the given code point. For example:
+When ECMAScript provides a way to do something, it also tends to provide a way to do the reverse. You can use `codePointAt()` to retrieve the code point for a character in a string, while `String.fromCodePoint()` produces a single-character string for the given code point. For example:
 
 ```js
 console.log(String.fromCodePoint(134071));  // "𠮷"
 ```
+
 You can think of `String.fromCodePoint()` as a more complete version of `String.fromCharCode()`. Each method has the same result for all characters in the BMP; the only difference is with characters outside of that range.
 
 ### Escaping Non-BMP Characters
@@ -76,7 +84,7 @@ console.log("\u20BB7");     // "₻7"
 
 Since Unicode escape sequences were defined as always having exactly four hexadecimal characters, ECMAScript evaluates `\u20BB7` as two characters: `\u20BB` and `"7"`. The first character is unprintable and the second is the number 7.
 
-ECMAScript 6 solves this problem by introducing an extended Unicode escape sequence where the hexadecimal numbers are contained within curly braces. This allows up to 8 hexadecimal characters to specify a single character:
+ECMAScript 6 solves this problem by introducing an extended Unicode escape sequence where the hexadecimal numbers are contained within curly braces. This allows any number of hexadecimal characters to specify a single character:
 
 ```js
 console.log("\u{20BB7}");     // "𠮷"
@@ -102,15 +110,15 @@ W> ~~~~~~~~
 
 Another interesting aspect of Unicode is that different characters may be considered equivalent for the purposes of sorting or other comparison-based operations. There are two ways to define these relationships. First, *canonical equivalence* means that two sequences of code points are considered interchangeable in all respects. That even means that a combination of two characters can be canonically equivalent to one character. The second relationship is *compatibility*, meaning that two sequences of code points having different appearances but can be used interchangeably in certain situations.
 
-The important thing to understand is that due to these relationships, it's possible to have two strings that represent fundamentally the same text and yet have them contain different code point sequences. For example,
-the character "æ" and the string "ae" may be used interchangeably even though they are different code points. These two strings would therefore be unequal in JavaScript unless they are normalized in some way.
+The important thing to understand is that due to these relationships, it's possible to have two strings that represent fundamentally the same text and yet have them contain different code point sequences. For example, the character "æ" and the string "ae" may be used interchangeably even though they are different code points. These two strings would therefore be unequal in JavaScript unless they are normalized in some way.
 
-ECMAScript 6 supports the four Unicode normalization forms through a new `normalize()` method on strings. This method optionally accepts a single parameter, one of `"NFC"` (default), `"NFD"`, `"NFKC"`, or `"NFKD"`. It's beyond the scope of this book to explain the differences between these four forms. Just keep in mind that, in order to be used, you must normalize both strings that are being compared to the same form. For example:
+ECMAScript 6 supports Unicode normalization forms through a new `normalize()` method on strings. This method optionally accepts a single string parameter indicating the Unicode normalization form to apply: `"NFC"` (default), `"NFD"`, `"NFKC"`, or `"NFKD"`. It's beyond the scope of this book to explain the differences between these four forms. Just keep in mind that, when comparing strings, both strings must be normalized to the same form. For example:
 
 ```js
 var normalized = values.map(function(text) {
     return text.normalize();
 });
+
 normalized.sort(function(first, second) {
     if (first < second) {
         return -1;
@@ -156,7 +164,7 @@ values.sort(function(first, second) {
 });
 ```
 
-If you've never worried about Unicode normalization before, then you probably won't have much use for this method. However, knowing that it is available will help should you ever end up working on an internationalized application.
+If you've never worried about Unicode normalization before, then you probably won't have much use for this method. However, knowing that it is available will help, should you ever end up working on an internationalized application.
 
 ### The Regular Expression u Flag
 
@@ -172,7 +180,7 @@ console.log(/^.$/.test(text));      // false
 console.log(/^.$/u.test(text));     // true
 ```
 
-Adding the `u` flag allows the regular expression to correctly match the string by characters. Unfortunately, ECMAScript 6 does not have a way of determining how many code points are present in a string; fortunately, regular expressions can be used to figure it out:
+Adding the `u` flag allows the regular expression to correctly match the string by characters. Unfortunately, ECMAScript 6 does not natively have a way of determining how many code points are present in a string; fortunately, regular expressions with the `u` flag can be used to figure it out:
 
 ```js
 function codePointLength(text) {
@@ -203,43 +211,76 @@ function hasRegExpU() {
 
 This function uses the `RegExp` constructor to pass in the `u` flag as an argument. This is valid syntax even in older JavaScript engines, however, the constructor will throw an error if `u` isn't supported.
 
-I> If your code needs to still work in older JavaScript engines, it's best to use the `RegExp` constructor exclusively when using the `u` flag. This will prevent syntax errors and allow you to optionally detect and use the `u` flag without aborting execution.
+I> If your code still needs to work in older JavaScript engines, it's best to use the `RegExp` constructor exclusively when using the `u` flag. This will prevent syntax errors and allow you to optionally detect and use the `u` flag without aborting execution.
+
+### Unicode Identifiers
+
+Better Unicode support in ECMAScript 6 also means changes to what characters may be used for an identifier. In ECMAScript 5, it was already possible to use Unicode escape sequences for identifiers, such as:
+
+```js
+// Valid in ECMAScript 5 and 6
+var \u0061 = "abc";
+
+console.log(\u0061);        // "abc"
+
+// equivalent to
+// console.log(a);          // "abc"
+```
+
+In ECMAScript 6, you can also use Unicode code point escape sequences as identifiers:
+
+```js
+// Valid in ECMAScript 5 and 6
+var \u{61} = "abc";
+
+console.log(\u{61});        // "abc"
+
+// equivalent to
+// console.log(a);          // "abc"
+```
+
+Additionally, ECMAScript 6 formally specifies valid identifiers in terms of [Unicode Standard Annex #31: Unicode Identifier and Pattern Syntax](http://unicode.org/reports/tr31/):
+
+1. The first character must be `$`, `_`, or any Unicode symbol with a derived core property of `ID_Start`.
+1. Each subsequent character must be `$`, `_`, `\u200c` (zero-width non-joiner), `\u200d` (zero-width joiner), or any Unicode symbol with a derived core property of `ID_Continue`.
+
+The `ID_Start` and `ID_Continue` derived core properties are defined in Unicode Identifier and Pattern Syntax as a way to identify symbols that are appropriate for use in identifiers such as variables and domain names (the specification is not specific to JavaScript).
 
 ## Other String Changes
 
 JavaScript strings have always lagged behind similar features of other languages. It was only in ECMAScript 5 that strings finally gained a `trim()` method, and ECMAScript 6 continues extending strings with new functionality.
 
-### contains(), startsWith(), endsWith()
+### includes(), startsWith(), endsWith()
 
 Developers have used `indexOf()` as a way to identify strings inside of other strings since JavaScript was first introduced. ECMAScript 6 adds three new methods whose purpose is to identify strings inside of other strings:
 
-* `contains()` - returns true if the given text is found anywhere within the string or false if not.
+* `includes()` - returns true if the given text is found anywhere within the string or false if not.
 * `startsWith()` - returns true if the given text is found at the beginning of the string or false if not.
 * `endsWith()` - returns true if the given text is found at the end of the string or false if not.
 
-Each of these methods accepts two arguments: the text to search for and an optional location from which to start the search. When the second argument is omitted, `contains()` and `startsWith()` start search from the beginning of the string while `endsWith()` starts from the end. In effect, the second argument results in less of the string being searched. Here are some examples:
+Each of these methods accepts two arguments: the text to search for and an optional location from which to start the search. When the second argument is omitted, `includes()` and `startsWith()` start search from the beginning of the string while `endsWith()` starts from the end. In effect, the second argument results in less of the string being searched. Here are some examples:
 
 ```js
 var msg = "Hello world!";
 
 console.log(msg.startsWith("Hello"));       // true
 console.log(msg.endsWith("!"));             // true
-console.log(msg.contains("o"));             // true
+console.log(msg.includes("o"));             // true
 
 console.log(msg.startsWith("o"));           // false
 console.log(msg.endsWith("world!"));        // true
-console.log(msg.contains("x"));             // false
+console.log(msg.includes("x"));             // false
 
 console.log(msg.startsWith("o", 4));        // true
 console.log(msg.endsWith("o", 8));          // true
-console.log(msg.contains("o", 8));          // false
+console.log(msg.includes("o", 8));          // false
 ```
 
 These three methods make it much easier to identify substrings without needing to worry about identifying their exact position.
 
 I> All of these methods return a boolean value. If you need to find the position of a string within another, use `indexOf()` or `lastIndexOf()`.
 
-W> The `startsWith()`, `endsWith()`, and `contains()` methods will throw an error if you pass a regular expression instead of a string. This stands in contrast to `indexOf()` and `lastIndexOf()`, which both convert a regular expression argument into a string and then search for that string.
+W> The `startsWith()`, `endsWith()`, and `includes()` methods will throw an error if you pass a regular expression instead of a string. This stands in contrast to `indexOf()` and `lastIndexOf()`, which both convert a regular expression argument into a string and then search for that string.
 
 ### repeat()
 
@@ -262,68 +303,86 @@ var indent = " ".repeat(size),
 var newIndent = indent.repeat(++indentLevel);
 ```
 
+<<<<<<< HEAD
 ### The Regular Expression `y` Flag
 
 ECMAScript 6 standardized the `y` flag after it had been implemented in Firefox as a proprietary extension to regular expressions. The `y` (sticky) flag indicates that the next match should be made starting with the value of `lastIndex` on the regular expression.
+=======
+## Other Regular Expression Changes
+>>>>>>> master
 
-The `lastIndex` property indicates the position at which to start the match of a string and is set to `0` by default, meaning matches always start at the beginning of a string. You can, however, overwrite `lastIndex` to have it start from somewhere else:
+Regular expressions are an important part of working with strings in JavaScript, and like many parts of the language, haven't really changed very much in recent versions. ECMAScript 6, however, makes several improvements to regular expressions to go along with the updates to strings.
 
-```js
-var pattern = /hello\d\s?/g,
-    text = "hello1 hello2 hello3",
-    result = pattern.exec(text);
+### The Regular Expression y Flag
 
-console.log(result[0]);     // "hello1 "
-
-pattern.lastIndex = 7;
-result = pattern.exec(text);
-
-console.log(result[0]);     // "hello2 "
-```
-
-In this example, the regular expression matches the string `"hello"` followed by a number and optionally a whitespace character. The `g` flag is important as it allows the regular expression to use `lastIndex` when set (without it, matches always start at `0` regardless of the `lastIndex` value). The first call to `exec()` results in matching "hello1" first while the second call, with a `lastIndex` of 6, matches "hello2" first.
-
-The sticky flag tells the regular expression to save the index of the next character after the last match in `lastIndex` whenever an operation is performed (in the previous example, 7 is the location of next character after "hello1 "). If an operation results in no match then `lastIndex` is set back to 0.
+ECMAScript 6 standardized the `y` flag after it had been implemented in Firefox as a proprietary extension to regular expressions. The `y` (sticky) flag starts matching at the position specified by its `lastIndex` property. If there is no match at that location, then the regular expression stops matching. For example:
 
 ```js
-var pattern = /hello\d\s?/y,
-    text = "hello1 hello2 hello3",
-    result = pattern.exec(text);
+var text = "hello1 hello2 hello3",
+    pattern = /hello\d\s?/,
+    result = pattern.exec(text),
+    globalPattern = /hello\d\s?/g,
+    globalResult = globalPattern.exec(text),
+    stickyPattern = /hello\d\s?/y,
+    stickyResult = stickyPattern.exec(text);
 
-console.log(result[0]);             // "hello1 "
-console.log(pattern.lastIndex);     // 7
+console.log(result[0]);         // "hello1 "
+console.log(globalResult[0]);   // "hello1 "
+console.log(stickyResult[0]);   // "hello1 "
 
-result = pattern.exec(text);
-
-console.log(result[0]);             // "hello2 "
-console.log(pattern.lastIndex);     // 14
-```
-
-Here, the same pattern is used but with the sticky flag instead of the global flag. The value of `lastIndex` changed to 7 after the first call to `exec()` and to 14 after the second call. Since the sticky flag is updating `lastIndex` for you, there's no need to keep track and manually update it yourself.
-
-Perhaps the most important thing to understand about the sticky flag is that sticky regular expressions have an implied `^` at the beginning, indicating that the pattern should match from the beginning of the input. For example, if the previous example is changed to not match the whitespace character, there are different results:
-
-```js
-var pattern = /hello\d/y,
-    text = "hello1 hello2 hello3",
-    result = pattern.exec(text);
-
-console.log(result[0]);             // "hello1"
-console.log(pattern.lastIndex);     // 6
+pattern.lastIndex = 1;
+globalPattern.lastIndex = 1;
+stickyPattern.lastIndex = 1;
 
 result = pattern.exec(text);
+globalResult = globalPattern.exec(text);
+stickyResult = stickyPattern.exec(text);
 
-console.log(result);                // null
-console.log(pattern.lastIndex);     // 0
+console.log(result[0]);         // "hello1 "
+console.log(globalResult[0]);   // "hello2 "
+console.log(stickyResult[0]);   // Error! stickyResult is null
 ```
 
-Without matching the whitespace character, the `lastIndex` is set to 6 after the first call to `exec()`. That means the regular expression will be evaluating the string as if it were this:
+In this example, three regular expressions are used, one each with the `y` flag, the `g` flag, and no flags. When used the first time, all three regular expressions return the same value `"hello1 "` (with a space at the end). After that, the `lastIndex` property is changed to 1, meaning that the regular expression should start matching from the second character. The regular expression with no flags completely ignores the change to `lastIndex` and still matches `"hello1 "`; the regular expression with the `g` flag goes on to match `"hello2 "` because it is searching forward from the second character of the string ("e"); the sticky regular expression doesn't match anything beginning at the second character so `stickyResult` is `null`.
+
+The sticky flag saves the index of the next character after the last match in `lastIndex` whenever an operation is performed. If an operation results in no match then `lastIndex` is set back to 0. This behavior is the same as the global flag:
 
 ```js
-" hello2 hello3"
+var text = "hello1 hello2 hello3",
+    pattern = /hello\d\s?/,
+    result = pattern.exec(text),
+    globalPattern = /hello\d\s?/g,
+    globalResult = globalPattern.exec(text),
+    stickyPattern = /hello\d\s?/y,
+    stickyResult = stickyPattern.exec(text);
+
+console.log(result[0]);         // "hello1 "
+console.log(globalResult[0]);   // "hello1 "
+console.log(stickyResult[0]);   // "hello1 "
+
+console.log(pattern.lastIndex);         // 0
+console.log(globalPattern.lastIndex);   // 7
+console.log(stickyPattern.lastIndex);   // 7
+
+result = pattern.exec(text);
+globalResult = globalPattern.exec(text);
+stickyResult = stickyPattern.exec(text);
+
+console.log(result[0]);         // "hello1 "
+console.log(globalResult[0]);   // "hello2 "
+console.log(stickyResult[0]);   // "hello2 "
+
+console.log(pattern.lastIndex);         // 0
+console.log(globalPattern.lastIndex);   // 14
+console.log(stickyPattern.lastIndex);   // 14
 ```
 
-Since there is an implied `^` at the beginning of the regular expression pattern, the pattern starts by matching `"h"` against the space and sees that they are not equivalent. The matching stops there and `null` is returned. The `lastIndex` property is reset to 0.
+The value of `lastIndex` changed to 7 after the first call to `exec()` and to 14 after the second call for both the sticky and global patterns.
+
+There are also a couple other subtle details to the sticky flag:
+
+1. The `lastIndex` property is only honored when calling methods on the regular expression object such as `exec()` and `test()`. Passing the regular expression to a string method, such as `match()`, will not result in the sticky behavior.
+1. When using the `^` character to match the start of a string, sticky regular expressions will only match from the start of the string (or start of line in multiline mode). So long as `lastIndex` is 0, the `^` makes a sticky regular expression no different from a non-sticky one. If `lastIndex` doesn't correspond to the beginning of the string (in single-line mode) or the beginning of a line (in multiline mode), the sticky regular expression will never match
 
 As with other regular expression flags, you can detect the presence of `y` by using a property. The `sticky` property is set to true with the sticky flag is present and false if not:
 
@@ -335,7 +394,6 @@ console.log(pattern.sticky);    // true
 
 The `sticky` property is read-only based on the presence of the flag and so cannot be changed in code.
 
-I> The `lastIndex` property is only honored when calling methods on the regular expression object such as `exec()` and `test()`. Passing the regular expression to a string method, such as `match()`, will not result in the sticky behavior.
 
 Similar to the `u` flag, the `y` flag is a syntax change, so it will cause a syntax error in older JavaScript engines. You can use the same approach to detect support:
 
@@ -352,7 +410,81 @@ function hasRegExpY() {
 
 Also similar to `u`, if you need to use `y` in code that runs in older JavaScript engines, be sure to use the `RegExp` constructor when defining those regular expressions to avoid a syntax error.
 
+<<<<<<< HEAD
 ## `Object.is()`
+=======
+### Duplicating Regular Expressions
+
+In ECMAScript 5, you can duplicate regular expressions by passing them into the `RegExp` constructor, such as:
+
+```js
+var re1 = /ab/i,
+    re2 = new RegExp(re1);
+```
+
+However, if you provide the second argument to `RegExp`, which specifies the flags for the regular expression, then an error is thrown:
+
+```js
+var re1 = /ab/i,
+
+    // throws an error in ES5, okay in ES6
+    re2 = new RegExp(re1, "g");
+```
+
+If you execute this code in an ECMAScript 5 environment, you'll get an error stating that the second argument cannot be used when the first argument is a regular expression. ECMAScript 6 changed this behavior such that the second argument is allowed and will override whichever flags are present on the first argument. For example:
+
+```js
+var re1 = /ab/i,
+
+    // throws an error in ES5, okay in ES6
+    re2 = new RegExp(re1, "g");
+
+
+console.log(re1.toString());            // "/ab/i"
+console.log(re2.toString());            // "/ab/g"
+
+console.log(re1.test("ab"));            // true
+console.log(re2.test("ab"));            // true
+
+console.log(re1.test("AB"));            // true
+console.log(re2.test("AB"));            // false
+
+```
+
+In this code, `re1` has the case-insensitive `i` flag present while `re2` has only the global `g` flag. The `RegExp` constructor duplicated the pattern from `re1` and then substituted `g` for `i`. If the second argument was missing then `re2` would have the same flags as `re1`.
+
+### The `flags` Property
+
+In ECMAScript 5, it's possible to get the text of the regular expression by using the `source` property, but to get the flag string requires parsing the output of `toString()`, such as:
+
+```js
+function getFlags(re) {
+    var text = re.toString();
+    return text.substring(text.lastIndexOf("/") + 1, text.length);
+}
+
+// toString() is "/ab/g"
+var re = /ab/g;
+
+console.log(getFlags(re));          // "g"
+```
+
+ECMAScript 6 adds a `flags` property to go along with `source`. Both properties are prototype accessor properties with only a getter assigned (making them read-only). The addition of `flags` makes it easier to inspect regular expressions for both debugging and inheritance purposes.
+
+A late addition to ECMAScript 6, the `flags` property returns the string representation of any flags applied to a regular expression. For example:
+
+```js
+var re = /ab/g;
+
+console.log(re.source);     // "ab"
+console.log(re.flags);      // "g"
+```
+
+Using `source` and `flags` together allow you to extract just the pieces of the regular expression that are necessary without needing to parse the regular expression string directly.
+
+
+## Object.is()
+>>>>>>> master
 
 When you want to compare two values, you're probably used to using either the equals operator (`==`) or the identically equals operator (`===`). Many prefer to use the latter to avoid type coercion during the comparison. However, even the identically equals operator isn't entirely accurate. For example, the values +0 and -0 are considered equal by `===` even though they are represented differently in the JavaScript engine. Also `NaN === NaN` returns `false`, which necessitates using `isNaN()` to detect `NaN` properly.
 
@@ -498,7 +630,7 @@ A> {:lang="js"}
 A> ~~~~~~~~
 A>  var funcs = [];
 A>
-A>  for (var i=0; i < 10; i++) {}
+A>  for (var i=0; i < 10; i++) {
 A>      funcs.push((function(value) {
 A>          return function() {
 A>              console.log(value);
@@ -511,7 +643,7 @@ A>      func();     // outputs 0, then 1, then 2, up to 9
 A>  });
 A> ~~~~~~~~
 A>
-A> This version of the example uses an IIFE inside of the loop. The `i` variable is passed to the IIFE, which creates it's own copy and stores it as `value`. This is the value used of the function for that iteration, so calling each function returns the expected value.
+A> This version of the example uses an IIFE inside of the loop. The `i` variable is passed to the IIFE, which creates its own copy and stores it as `value`. This is the value used of the function for that iteration, so calling each function returns the expected value.
 A>
 A> A `let` declaration does this for you without the IIFE. Each iteration through the loop results in a new variable being created and initialized to the value of the variable with the same name from the previous iteration. That means you can simplify the process by using this code:
 A>
@@ -519,7 +651,7 @@ A> {:lang="js"}
 A> ~~~~~~~~
 A>  var funcs = [];
 A>
-A>  for (let i=0; i < 10; i++) {}
+A>  for (let i=0; i < 10; i++) {
 A>      funcs.push(function() { console.log(i); });
 A>  }
 A>
@@ -539,7 +671,11 @@ if (condition) {
 }
 ```
 
-In this code, the variable `value` is defined and initialized using `let`, but that statement is never executed because the previous line throws an error. The same is true anytime you attempt to use a `let` variable inside of the same block prior to it being defined. Even the normally safe-to-use `typeof` operator isn't safe:
+In this code, the variable `value` is defined and initialized using `let`, but that statement is never executed because the previous line throws an error. The issue is that `value` exists in what has become known as the *temporal dead zone* (TDZ). The TDZ is never named explicitly in the specification, but is a term often used to describe the non-hoisting behavior of `let`.
+
+When a JavaScript parser looks through the upcoming block to find variable declarations, it results in either hoisting the declaration (for `var`) or placing the declaration in the TDZ. Any attempt to access a variable in the TDZ results in a runtime error. Only once execution flows to the variable declaration is that variable removed from the TDZ and therefore safe to use.
+
+The same is true anytime you attempt to use a variable declared with `let` inside of the same block prior to it being defined. Even the normally safe-to-use `typeof` operator isn't safe:
 
 ```js
 if (condition) {
@@ -558,7 +694,7 @@ if (condition) {
 }
 ```
 
-This example has the `typeof` operator applied outside of the block in which `value` is declared. That means there is no `value` binding and `typeof` simply returns `"undefined"`.
+The variable `value` isn't in the TDZ when the `typeof` operation executes because it occurs outside of the block in which `value` is declared. That means there is no `value` binding and `typeof` simply returns `"undefined"`.
 
 If an identifier has already been defined in the block, then using the identifier in a `let` declaration causes an error to be thrown. For example:
 
@@ -585,7 +721,21 @@ if (condition) {
 
 Here, the `let` declaration will not throw an error because it is creating a new variable called `count` within the `if` statement. This new variable shadows the global `count`, preventing access to it from within the `if` block.
 
-The intent of `let` is to replace `var` long term, as the former behaves more like variable declarations in other languages. If you are writing JavaScript that will execute only in an ECMAScript 6 or higher environment, you may want to try using `let` exclusively and leaving `var` for other scripts that require backwards compatibility.
+A> ### Global let Declarations
+A>
+A> There is the potential for naming collisions when using `let` in the global scope because the global object has predefined properties. Using `let` to define a variable that shares a name with a property of the global object can produce an error because global object properties may be nonconfigurable. Since `let` doesn't allow redefinition of the same identifier in the same scope, it's not possible to shadow nonconfigurable global properties. Attempting to do so will result in an error. For example:
+A>
+A> {:lang="js"}
+A> ~~~~~~~~
+A>  let RegExp = "Hello!";          // ok
+A>  let undefined = "Hello!";       // throws error
+A> ~~~~~~~~
+A>
+A> The first line of this example redefines the global `RegExp` as a string. Even though this would be problematic, there is no error thrown. The second line throws an error because `undefined` is a nonconfigurable own property of the global object. Since its definition is locked down by the environment, the `let` declaration is illegal.
+A>
+A> It's unusual to use `let` in the global scope, but if you do, it's important to understand this situation.
+
+The long term intent is for `let` to replace `var`, as the former behaves more like variable declarations in other languages. If you are writing JavaScript that will execute only in an ECMAScript 6 or higher environment, you may want to try using `let` exclusively and leaving `var` for other scripts that require backwards compatibility.
 
 I> Since `let` declarations are *not* hoisted to the top of the enclosing block, you may want to always place `let` declarations first in the block so that they are available to the entire block.
 
@@ -601,7 +751,7 @@ const MAX_ITEMS = 30;
 const NAME;
 ```
 
-Constants are also block-level declarations, similar to `let`. That means constants are destroyed once execution flows out of the block in which they were declared and declarations are hoisted to the top of the block. For example:
+Constants are also block-level declarations, similar to `let`. That means constants are destroyed once execution flows out of the block in which they were declared, and declarations are not hoisted to the top of the block. For example:
 
 ```js
 if (condition) {
@@ -613,7 +763,7 @@ if (condition) {
 // MAX_ITEMS isn't accessible here
 ```
 
-In this code, the constant `MAX_ITEMS` is declared within and `if` statement. Once the statement finishes executing, `MAX_ITEMS` is destroyed and is not accessible outside of that block.
+In this code, the constant `MAX_ITEMS` is declared within an `if` statement. Once the statement finishes executing, `MAX_ITEMS` is destroyed and is not accessible outside of that block.
 
 Also similar to `let`, an error is thrown whenever a `const` declaration is made with an identifier for an already-defined variable in the same scope. It doesn't matter if that variable was declared using `var` (for global or function scope) or `let` (for block scope). For example:
 
@@ -624,6 +774,14 @@ let age = 25;
 // Each of these would cause an error given the previous declarations
 const message = "Goodbye!";
 const age = 30;
+```
+
+The big difference between `let` and `const` is that attempting to assign to a previously defined constant will throw an error in both strict and non-strict modes:
+
+```js
+const MAX_ITEMS = 5;
+
+MAX_ITEMS = 6;      // throws error
 ```
 
 W> Several browsers implement pre-ECMAScript 6 versions of `const`. Implementations range from being simply a synonym for `var` (allowing the value to be overwritten) to actually defining constants but only in the global or function scope. For this reason, be especially careful with using `const` in a production system. It may not be providing you with the functionality you expect.
@@ -688,7 +846,7 @@ console.log(save);          // false
 
 Here, two local variables called `repeat` and `save` are created. They are initialized with the value of `options.repeat` and `options.save`, respectively. This shorthand is helpful when there's no need to have different variable names.
 
-Destructuring can also handled nested objects, such as the following:
+Destructuring can also handle nested objects, such as the following:
 
 ```js
 var options = {
@@ -708,25 +866,27 @@ console.log(save);          // false
 console.log(custom);        // 10
 ```
 
-In this example, the `custom` property is embedded in another object. The extra set of curly braces allows you to descend into a nested an object and pull out its properties.
+In this example, the `custom` property is embedded in another object. The extra set of curly braces allows you to descend into a nested object and pull out its properties.
 
 A> #### Syntax Gotcha
 A>
 A> If you try use destructuring assignment without a `var`, `let`, or `const`, you may be surprised by the result:
 A>
-A> ```js
+A> {:lang="js"}
+A> ~~~~~~~~
 A> // syntax error
 A> { repeat, save, rules: { custom }} = options;
-A> ```
+A> ~~~~~~~~
 A>
 A> This causes a syntax error because the opening curly brace is normally the beginning of a block and blocks can't be part of assignment expressions.
 A>
-A> The solution is to wrap the left side literal in parentheses:
+A> The solution is to wrap the entire expression in parentheses:
 A>
-A> ```js
+A> {:lang="js"}
+A> ~~~~~~~~
 A> // no syntax error
-A> ({ repeat, save, rules: { custom }}) = options;
-A> ```
+A> ({ repeat, save, rules: { custom }} = options);
+A> ~~~~~~~~
 A>
 A> This now works without any problems.
 
@@ -838,7 +998,7 @@ function getValue() {
 
 By making these two changes, ECMAScript 5 sought to eliminate a lot of the confusion and errors associated with octal literals.
 
-ECMAScript 6 took things a step further by reintroducing an octal literal notation, along with a binary literal notation. Both of these notations take a hint for the hexadecimal literal notation of prepending `0x`or `0X` to a value. The new octal literal format begins with `0o` or `0O` while the new binary literal format begins with `0b` or `0B`. Each literal type must be followed by one or more digits, 0-7 for octal, 0-1 for binary. Here's an example:
+ECMAScript 6 took things a step further by reintroducing an octal literal notation, along with a binary literal notation. Both of these notations take a hint from the hexadecimal literal notation of prepending `0x` or `0X` to a value. The new octal literal format begins with `0o` or `0O` while the new binary literal format begins with `0b` or `0B`. Each literal type must be followed by one or more digits, 0-7 for octal, 0-1 for binary. Here's an example:
 
 ```js
 // ECMAScript 6
@@ -871,7 +1031,7 @@ JavaScript has long had a couple of global methods for identifying certain types
 * `isFinite()` determines if a value represents a finite number (not `Infinity` or `-Infinity`)
 * `isNaN()` determines if a value is `NaN` (since `NaN` is the only value that is not equal to itself)
 
-Although intended to work with numbers, these methods are capable of inferring a numeric value from and value that is passed in. That both methods can return incorrect results when passed a value that isn't a number. For example:
+Although intended to work with numbers, these methods are capable of inferring a numeric value from any value that is passed in. That means both methods can return incorrect results when passed a value that isn't a number. For example:
 
 ```js
 console.log(isFinite(25));      // true
@@ -897,7 +1057,7 @@ console.log(Number.isNaN(NaN));         // true
 console.log(Number.isNaN("NaN"));       // false
 ```
 
-In this code, `Number.isFinite("25")` returns `false` even though `isFinite("25")` returns `true`; likewise `Number.isNaN("NaN") returns `false` even though `isNaN("NaN")` returns `true`.
+In this code, `Number.isFinite("25")` returns `false` even though `isFinite("25")` returns `true`; likewise `Number.isNaN("NaN")` returns `false` even though `isNaN("NaN")` returns `true`.
 
 These two new methods are aimed at eliminating certain types of errors that can be caused when non-number values are used with `isFinite()` and `isNaN()` without dramatically changing the language.
 
@@ -923,7 +1083,7 @@ In this code, `Number.isInteger()` returns `true` for both `25` and `25.0` even 
 
 #### Safe Integers
 
-However, all is not so simple with integers. JavaScript can only accurately represent integers between -2^53 and 2^53, and outside of this "safe" range, binary representations end up reused for multiple numeric values. For example:
+However, all is not so simple with integers. JavaScript can only accurately represent integers between -2^53^ and 2^53^, and outside of this "safe" range, binary representations end up reused for multiple numeric values. For example:
 
 ```js
 console.log(Math.pow(2, 53));      // 9007199254740992
@@ -970,7 +1130,7 @@ As a result, ECMAScript 6 adds several new methods to the `Math` object. These n
 |`Math.log1p(x)`| Returns the natural logarithm of `1 + x`. |
 |`Math.log10(x)`| Returns the base 10 logarithm of `x`. |
 |`Math.log2(x)`| Returns the base 2 logarithm of `x`. |
-|`Math.sign(x)`| Returns -1 if the `x` is negative 0 if `x` is +0 or -0, or 1 if `x` is positive.|
+|`Math.sign(x)`| Returns -1 if the `x` is negative, 0 if `x` is +0 or -0, or 1 if `x` is positive.|
 |`Math.sinh(x)`| Returns the hyperbolic sine of `x`. |
 |`Math.tanh(x)`| Returns the hyperbolic tangent of `x`. |
 |`Math.trunc(x)`| Removes fraction digits from a float and returns an integer.|
@@ -983,10 +1143,10 @@ ECMAScript 6 makes a lot of changes, both large and small, to JavaScript. Some o
 
 Full Unicode support allows JavaScript to start dealing with UTF-16 characters in logical ways. The ability to transfer between code point and character via `codePointAt()` and `String.fromCodePoint()` is an important step for string manipulation. The addition of the regular expression `u` flag makes it possible to operate on code points instead of 16-bit characters, and the `normalize()` method allows for more appropriate string comparisons.
 
-Additional methods for working with strings were added, allowing you to more easily identify substrings no matter where they are found. The `Object.is()` method performs strict equality on any value, effectively becoming a safer version of `===` when dealing with special JavaScript values.
+Additional methods for working with strings were added, allowing you to more easily identify substrings no matter where they are found, and more functionality was added to regular expressions. The `Object.is()` method performs strict equality on any value, effectively becoming a safer version of `===` when dealing with special JavaScript values.
 
 The `let` and `const` block bindings introduce lexical scoping to JavaScript. These declarations are not hoisted and only exist within the block in which they are declared. That means behavior that is more like other languages and less likely to cause unintentional errors, as variables can now be declared exactly where they are needed. It's expected that the majority of JavaScript code going forward will use `let` and `const` exclusively, effectively making `var` a deprecated part of the language.
 
-ECMAScript 6 makes it easier to work with numbers through the introduction of new syntax and new methods. The binary and octal literal forms allow you to embed numbers directly into source code while keeping the most appropriate representation visible. There are `Number.isFinite()` and `Number.isNaN()` that are safer versions of the global methods of the same names due to their lack of type coercion. You can more easily identify integers using `Number.isInteger()` and `Number.isSafeInteger()` as well as perform a lot more mathematical operations thanks to new methods on `Math`.
+ECMAScript 6 makes it easier to work with numbers through the introduction of new syntax and new methods. The binary and octal literal forms allow you to embed numbers directly into source code while keeping the most appropriate representation visible. `Number.isFinite()` and `Number.isNaN()` are introduced as safer versions of their respective global methods. You can more easily identify integers using `Number.isInteger()` and `Number.isSafeInteger()`, as well as perform more mathematical operations thanks to new methods on `Math`.
 
-Though many of these changes are small, they will make a significant difference in the lives of JavaScript developers for years to come. Each change addresses a particular concern that can otherwise requires a lot of custom code to address. By building this functionality into the language, developers can focus on writing the code for their product rather than low-level utilities.
+Though many of these changes are small, they will make a significant difference in the lives of JavaScript developers for years to come. Each change addresses a particular concern that can otherwise require a lot of custom code to address. By building this functionality into the language, developers can focus on writing the code for their product rather than low-level utilities.
